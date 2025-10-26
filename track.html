@@ -1,1 +1,119 @@
-<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <title>Order Tracking</title> <meta name="viewport" content="width=device-width, initial-scale=1"> <style> body { font-family: Arial, sans-serif; margin: 0; } #map { height: 100vh; width: 100%; } .info { position: absolute; top: 10px; left: 10px; background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); } </style> <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY"></script> </head> <body> <div class="info"> <h3>Order Tracking</h3> <p id="orderId"></p> <p id="status">Waiting for driver location...</p> </div> <div id="map"></div> <script> const params = new URLSearchParams(window.location.search); const orderId = params.get("order_id"); document.getElementById("orderId").textContent = `Order ID: ${orderId}`; let map, marker; function initMap(lat = 6.5244, lng = 3.3792) { // default Lagos map = new google.maps.Map(document.getElementById("map"), { zoom: 14, center: { lat, lng }, }); marker = new google.maps.Marker({ position: { lat, lng }, map, title: "Driver", }); } async function fetchLocation() { const response = await fetch(`https://your-backend-api.com/location/${orderId}`); if (!response.ok) return; const data = await response.json(); if (data.lat && data.lng) { const newPos = { lat: data.lat, lng: data.lng }; marker.setPosition(newPos); map.panTo(newPos); document.getElementById("status").textContent = "Driver en route 🚚"; } } initMap(); setInterval(fetchLocation, 5000); // update every 5s </script> </body> </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Track Your Order - Grocery Bazaar</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-u0Uj+7X2RzTnHgI6hlO8FJyVfUqcJ4GzhS8F3Srd0pA="
+    crossorigin=""
+  />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 15px;
+      background-color: #f8f9fa;
+    }
+    #map {
+      height: 400px;
+      width: 100%;
+      margin-top: 15px;
+      border-radius: 10px;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px;
+      width: 80%;
+      max-width: 400px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      background-color: #28a745;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #218838;
+    }
+    #status {
+      margin-top: 10px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <h2>🚚 Track Your Delivery</h2>
+  <p>Enter your order ID below to track your delivery in real-time.</p>
+
+  <input type="text" id="orderId" placeholder="Enter Order ID">
+  <button onclick="startTracking()">Track Order</button>
+  <p id="status"></p>
+
+  <div id="map"></div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-o9N1jRVvUjjyZz6I8G+T1jZeM3XKp1jzF8HkU1tPpMI="
+    crossorigin="">
+  </script>
+
+  <script>
+    const BACKEND_BASE = "https://your-backend-api.com"; // 🔁 Replace this with your backend domain
+
+    let map, marker, orderId, poller;
+
+    function initMap() {
+      map = L.map("map").setView([6.5244, 3.3792], 12); // Default Lagos
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+    }
+
+    async function fetchLocation() {
+      if (!orderId) return;
+      try {
+        const res = await fetch(`${BACKEND_BASE}/api/get_location/${orderId}`);
+        if (!res.ok) throw new Error("Failed to fetch location");
+
+        const data = await res.json();
+        if (data.lat && data.lon) {
+          const lat = parseFloat(data.lat);
+          const lon = parseFloat(data.lon);
+
+          if (!marker) {
+            marker = L.marker([lat, lon]).addTo(map);
+          } else {
+            marker.setLatLng([lat, lon]);
+          }
+
+          map.setView([lat, lon], 14);
+          document.getElementById("status").textContent =
+            `Driver location updated at ${new Date().toLocaleTimeString()}`;
+        } else {
+          document.getElementById("status").textContent =
+            "Awaiting driver location update...";
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById("status").textContent = "Error fetching location.";
+      }
+    }
+
+    function startTracking() {
+      orderId = document.getElementById("orderId").value.trim();
+      if (!orderId) return alert("Enter a valid Order ID");
+
+      document.getElementById("status").textContent = "Tracking started...";
+      fetchLocation();
+      poller = setInterval(fetchLocation, 10000); // every 10 seconds
+    }
+
+    window.onload = initMap;
+  </script>
+</body>
+</html>
